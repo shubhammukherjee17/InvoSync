@@ -23,6 +23,10 @@ export default function InvoiceGenerator() {
     { id: 1, description: '', quantity: 1, rate: 0, amount: 0 },
   ]);
   const [gstRate, setGstRate] = useState(18);
+  const [isGstRequired, setIsGstRequired] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<'standard' | 'room-rent'>('standard');
+  const [roomNumber, setRoomNumber] = useState('');
+  const [rentPeriod, setRentPeriod] = useState('');
   const [signatureName, setSignatureName] = useState('');
   const [signatureTitle, setSignatureTitle] = useState('Authorized Signatory');
 
@@ -48,7 +52,7 @@ export default function InvoiceGenerator() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const gstAmount = (subtotal * gstRate) / 100;
+  const gstAmount = isGstRequired ? (subtotal * gstRate) / 100 : 0;
   const total = subtotal + gstAmount;
 
   const saveAsDraft = () => {
@@ -61,6 +65,10 @@ export default function InvoiceGenerator() {
       invoiceDate,
       items,
       gstRate,
+      isGstRequired,
+      invoiceType,
+      roomNumber,
+      rentPeriod,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem('invoice_draft', JSON.stringify(draft));
@@ -78,7 +86,11 @@ export default function InvoiceGenerator() {
       setInvoiceNumber(data.invoiceNumber);
       setInvoiceDate(data.invoiceDate);
       setItems(data.items);
-      setGstRate(data.gstRate);
+      setGstRate(data.gstRate || 18);
+      setIsGstRequired(data.isGstRequired || false);
+      setInvoiceType(data.invoiceType || 'standard');
+      setRoomNumber(data.roomNumber || '');
+      setRentPeriod(data.rentPeriod || '');
       alert('Draft loaded successfully!');
     } else {
       alert('No draft found!');
@@ -116,10 +128,13 @@ export default function InvoiceGenerator() {
                 <div class="label">Bill To:</div>
                 <div>${clientName || 'Client Name'}</div>
                 <div>${clientAddress || 'Client Address'}</div>
+                ${invoiceType === 'room-rent' && roomNumber ? `<div style="margin-top: 10px;"><span class="label">Room Number:</span> ${roomNumber}</div>` : ''}
+                ${invoiceType === 'room-rent' && rentPeriod ? `<div><span class="label">Period:</span> ${rentPeriod}</div>` : ''}
               </div>
               <div class="section" style="text-align: right;">
                 <div><span class="label">Invoice #:</span> ${invoiceNumber}</div>
                 <div><span class="label">Date:</span> ${invoiceDate}</div>
+                ${invoiceType === 'room-rent' ? '<div style="margin-top: 10px; font-weight: bold; color: #6366f1;">Room Rent Invoice</div>' : ''}
               </div>
             </div>
 
@@ -146,7 +161,7 @@ export default function InvoiceGenerator() {
 
             <div style="text-align: right; margin-top: 20px;">
               <div style="margin: 10px 0;"><span class="label">Subtotal:</span> ₹${subtotal.toFixed(2)}</div>
-              <div style="margin: 10px 0;"><span class="label">GST (${gstRate}%):</span> ₹${gstAmount.toFixed(2)}</div>
+              ${isGstRequired ? `<div style="margin: 10px 0;"><span class="label">GST (${gstRate}%):</span> ₹${gstAmount.toFixed(2)}</div>` : ''}
               <div style="margin: 10px 0; font-size: 1.2em; color: #6366f1;"><span class="label">Total:</span> ₹${total.toFixed(2)}</div>
             </div>
 
@@ -177,7 +192,8 @@ export default function InvoiceGenerator() {
 
   const emailInvoice = () => {
     const subject = `Invoice ${invoiceNumber} from ${companyName || 'InvoSync'}`;
-    const body = `Dear ${clientName || 'Customer'},\n\nPlease find attached invoice ${invoiceNumber} dated ${invoiceDate}.\n\nInvoice Details:\nSubtotal: ₹${subtotal.toFixed(2)}\nGST (${gstRate}%): ₹${gstAmount.toFixed(2)}\nTotal: ₹${total.toFixed(2)}\n\nThank you for your business!\n\nBest regards,\n${companyName || 'Your Company'}`;
+    const gstLine = isGstRequired ? `GST (${gstRate}%): ₹${gstAmount.toFixed(2)}\n` : '';
+    const body = `Dear ${clientName || 'Customer'},\n\nPlease find attached invoice ${invoiceNumber} dated ${invoiceDate}.\n\nInvoice Details:\nSubtotal: ₹${subtotal.toFixed(2)}\n${gstLine}Total: ₹${total.toFixed(2)}\n\nThank you for your business!\n\nBest regards,\n${companyName || 'Your Company'}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -256,25 +272,122 @@ export default function InvoiceGenerator() {
 
               <div className="rounded-2xl bg-white p-6 shadow-lg dark:bg-gray-800">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Invoice Info</h2>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Invoice #</label>
-                    <input
-                      type="text"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Invoice Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvoiceType('standard');
+                          if (invoiceType === 'room-rent') {
+                            setItems([{ id: 1, description: '', quantity: 1, rate: 0, amount: 0 }]);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          invoiceType === 'standard'
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        Standard Invoice
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvoiceType('room-rent');
+                          setItems([{ id: 1, description: 'Room Rent', quantity: 1, rate: 0, amount: 0 }]);
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          invoiceType === 'room-rent'
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        Room Rent Invoice
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
-                    <input
-                      type="date"
-                      value={invoiceDate}
-                      onChange={(e) => setInvoiceDate(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
+                  {invoiceType === 'room-rent' && (
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Room Number</label>
+                        <input
+                          type="text"
+                          value={roomNumber}
+                          onChange={(e) => setRoomNumber(e.target.value)}
+                          placeholder="e.g., 101, A-12"
+                          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rent Period</label>
+                        <input
+                          type="text"
+                          value={rentPeriod}
+                          onChange={(e) => setRentPeriod(e.target.value)}
+                          placeholder="e.g., January 2024, Jan-Mar 2024"
+                          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Invoice #</label>
+                      <input
+                        type="text"
+                        value={invoiceNumber}
+                        onChange={(e) => setInvoiceNumber(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                      <input
+                        type="date"
+                        value={invoiceDate}
+                        onChange={(e) => setInvoiceDate(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-6 shadow-lg dark:bg-gray-800">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">GST Settings</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="gstRequired"
+                      checked={isGstRequired}
+                      onChange={(e) => setIsGstRequired(e.target.checked)}
+                      className="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <label htmlFor="gstRequired" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Apply GST to this invoice
+                    </label>
+                  </div>
+                  {isGstRequired && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">GST Rate (%)</label>
+                      <select
+                        value={gstRate}
+                        onChange={(e) => setGstRate(parseFloat(e.target.value))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="0">0%</option>
+                        <option value="0.25">0.25%</option>
+                        <option value="3">3%</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -308,7 +421,7 @@ export default function InvoiceGenerator() {
                         />
                         <input
                           type="number"
-                          value={item.rate}
+                          value={item.rate === 0 ? '' : item.rate}
                           onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
                           placeholder="Rate"
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:border-purple-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -370,10 +483,23 @@ export default function InvoiceGenerator() {
                     <p className="font-semibold text-gray-900 dark:text-white">Bill To:</p>
                     <p className="text-gray-600 dark:text-gray-400">{clientName || 'Client Name'}</p>
                     <p className="text-gray-600 dark:text-gray-400">{clientAddress || 'Client Address'}</p>
+                    {invoiceType === 'room-rent' && roomNumber && (
+                      <p className="text-gray-600 dark:text-gray-400 mt-2">
+                        <span className="font-semibold">Room:</span> {roomNumber}
+                      </p>
+                    )}
+                    {invoiceType === 'room-rent' && rentPeriod && (
+                      <p className="text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold">Period:</span> {rentPeriod}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900 dark:text-white">Invoice: {invoiceNumber}</p>
                     <p className="text-gray-600 dark:text-gray-400">Date: {invoiceDate}</p>
+                    {invoiceType === 'room-rent' && (
+                      <p className="text-purple-600 dark:text-purple-400 font-semibold mt-2">Room Rent Invoice</p>
+                    )}
                   </div>
                 </div>
 
@@ -405,10 +531,12 @@ export default function InvoiceGenerator() {
                     <span className="text-gray-700 dark:text-gray-300">Subtotal:</span>
                     <span className="font-semibold text-gray-900 dark:text-white">₹{subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-700 dark:text-gray-300">GST ({gstRate}%):</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">₹{gstAmount.toFixed(2)}</span>
-                  </div>
+                  {isGstRequired && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-700 dark:text-gray-300">GST ({gstRate}%):</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">₹{gstAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                     <span className="text-lg font-bold text-gray-900 dark:text-white">Total:</span>
                     <span className="text-lg font-bold text-purple-600 dark:text-purple-400">₹{total.toFixed(2)}</span>
