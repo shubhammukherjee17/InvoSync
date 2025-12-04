@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Footer from '../../components/Footer';
+import Header from '../../components/Header';
 
 const features = {
   'billing-software': {
@@ -148,26 +149,7 @@ export default async function FeaturePage({ params }: { params: Promise<{ slug: 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600">
-                <span className="text-xl font-bold text-white">I</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                InvoSync
-              </span>
-            </Link>
-            <Link
-              href="/"
-              className="text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-            >
-              ← Back to Home
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header showBackButton={true} />
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24">
